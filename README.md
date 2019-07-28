@@ -4,6 +4,7 @@
 KOReader
 ========
 
+
 [![Join the chat][gitter-badge]][gitter-link]
 
 KOReader is a document viewer application, originally created for Kindle
