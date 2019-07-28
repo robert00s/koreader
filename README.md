@@ -7,7 +7,7 @@ KOReader
 
 [![Join the chat][gitter-badge]][gitter-link]
 
-KOREADER
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](YOUR_EMAIL_CODE)
 
 KOReader is a document viewer application, originally created for Kindle
 e-ink readers. It currently runs on Kindle, Kobo, PocketBook, Ubuntu Touch
