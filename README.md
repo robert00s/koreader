@@ -7,6 +7,8 @@ KOReader
 
 [![Join the chat][gitter-badge]][gitter-link]
 
+KOREADER
+
 KOReader is a document viewer application, originally created for Kindle
 e-ink readers. It currently runs on Kindle, Kobo, PocketBook, Ubuntu Touch
 and Android (2.3+) devices. Developers can also run KOReader emulator
