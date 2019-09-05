@@ -154,6 +154,11 @@ Multiswipes allow you to perform complex gestures built up out of multiple swipe
 
 These advanced gestures consist of either straight swipes or diagonal swipes. To ensure accuracy, they can't be mixed.]])
 
+local pan_gesture_action_support = {
+    increase_frontlight = true,
+    decrease_frontlight = true,
+}
+
 function ReaderGesture:init()
     if not Device:isTouchDevice() then return end
     self.multiswipes_enabled = G_reader_settings:readSetting("multiswipes_enabled")
@@ -975,6 +980,7 @@ function ReaderGesture:setupGesture(ges, action)
         }
         overrides_pan = {
             "paging_swipe",
+            "paging_pan",
             "rolling_swipe",
         }
         overrides_pan_release = {
@@ -1151,11 +1157,18 @@ function ReaderGesture:setupGesture(ges, action)
     else return
     end
     self:registerGesture(ges, action, ges_type, zone, overrides, direction, distance)
-    -- make dummy zone to disable panning and panning_release when gesture is swipe
+
     if ges_type == "swipe" and ges ~= "short_diagonal_swipe" then
         local pan_gesture = ges.."_pan"
         local pan_release_gesture = ges.."_pan_release"
-        self:registerGesture(pan_gesture, "", "pan", zone, overrides_swipe_pan, direction, distance)
+        if pan_gesture_action_support[action] then
+            -- register extra panning gesture for supported action (eg. increase_frontlight, decrease_frontlight etc.)
+            self:registerGesture(pan_gesture, action, "pan", zone, overrides_swipe_pan, direction, distance)
+        else
+            -- make dummy zone to disable panning when gesture is swipe
+            self:registerGesture(pan_gesture, "", "pan", zone, overrides_swipe_pan, direction, distance)
+        end
+        -- make dummy zone to disable panning_release when gesture is swipe
         self:registerGesture(pan_release_gesture, "", "pan_release", zone, overrides_swipe_pan_release, direction, distance)
     end
 end
