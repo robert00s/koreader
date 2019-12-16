@@ -74,6 +74,12 @@ function Usage:chargingHours()
     return math.abs(curr.percentage - 100) / self:percentagePerHour()
 end
 
+local function showToHClock(time)
+    if time == "n/a" then return _("n/a") end
+    time = math.floor(time * 3600)
+    return util.secondsToHClock(time, true, true, true)
+end
+
 local function shorten(number)
     if number == "n/a" then return _("n/a") end
     return string.format("%.2f", number);
@@ -86,11 +92,11 @@ function Usage:dump(kv_pairs)
 end
 
 function Usage:dumpRemaining(kv_pairs)
-    table.insert(kv_pairs, {INDENTATION .. _("Estimated remaining hours"), shorten(self:remainingHours())})
+    table.insert(kv_pairs, {INDENTATION .. _("Estimated remaining time"), showToHClock(self:remainingHours())})
 end
 
 function Usage:dumpCharging(kv_pairs)
-    table.insert(kv_pairs, {INDENTATION .. _("Estimated hours for charging"), shorten(self:chargingHours())})
+    table.insert(kv_pairs, {INDENTATION .. _("Estimated time for charging"), showToHClock(self:chargingHours())})
 end
 
 local BatteryStat = {
