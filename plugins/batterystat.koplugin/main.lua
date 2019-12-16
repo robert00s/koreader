@@ -81,7 +81,7 @@ end
 
 function Usage:dump(kv_pairs)
     table.insert(kv_pairs, {INDENTATION .. _("Consumed %"), shorten(self.percentage)})
-    table.insert(kv_pairs, {INDENTATION .. _("Total time"), util.secondsToHClock(self.time, true, true)})
+    table.insert(kv_pairs, {INDENTATION .. _("Total time"), util.secondsToHClock(self.time, true, true, true)})
     table.insert(kv_pairs, {INDENTATION .. _("% per hour"), shorten(self:percentagePerHour())})
 end
 
@@ -253,12 +253,12 @@ function BatteryStat:dump()
     table.insert(kv_pairs, {_("Sleeping since last charge"), ""})
     self.sleeping:dump(kv_pairs)
     self.sleeping:dumpRemaining(kv_pairs)
-    table.insert(kv_pairs, {_("During last charge"), ""})
-    self.charging:dump(kv_pairs)
-    self.charging:dumpCharging(kv_pairs)
     table.insert(kv_pairs, {_("Since last charge"), ""})
     self.discharging:dump(kv_pairs)
     self.discharging:dumpRemaining(kv_pairs)
+    table.insert(kv_pairs, {_("During last charge"), ""})
+    self.charging:dump(kv_pairs)
+    self.charging:dumpCharging(kv_pairs)
     return kv_pairs
 end
 

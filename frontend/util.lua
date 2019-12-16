@@ -108,92 +108,75 @@ end
 ---- @int seconds number of seconds
 ---- @bool withoutSeconds if true 1h30', if false 1h30'10''
 ---- @bool hmsFormat, if true format 1h30m10s
+---- @bool showDays, if true format 2d15h30m10s
 ---- @treturn string clock string in the form of 1h30' or 1h30'10''
-function util.secondsToHClock(seconds, withoutSeconds, hmsFormat)
+function util.secondsToHClock(seconds, withoutSeconds, hmsFormat, showDays)
     seconds = tonumber(seconds)
-    if seconds == 0 then
-        if withoutSeconds then
-            if hmsFormat then
-                return T(_("%1m"), "0")
-            else
-                return "0'"
-            end
-        else
-            if hmsFormat then
-                return T(_("%1s"), "0")
-            else
-                return "0''"
-            end
+    local round = withoutSeconds and require("optmath").round or math.floor
+    local days = math.floor(seconds/86400)
+    if not showDays then
+        days = 0
+    end
+    local hours = math.floor((seconds - days*86400)/3600)
+    local min = round((seconds - days*86400 - hours*3600)/60)
+    if min == 60 then
+        hours = hours + 1
+        min = 0
+    end
+    if hours == 24 and showDays then
+        days = days + 1
+        hours = 0
+    end
+    local sec = seconds % 60
+    if seconds >=10 then
+        sec = string.format("%02.f", sec)
+    end
+
+    local date_format = ""
+    local marker_begin_string = false
+    if days > 0 then
+        -- @translators This is an abbreviation for the day (unit time = 24 hours).
+        date_format = T(_("%1d"), days)
+        marker_begin_string = true
+    end
+    if hours > 0 or marker_begin_string then
+        if marker_begin_string then
+            hours = string.format("%02.f", hours)
         end
-    elseif seconds < 60 then
-        if withoutSeconds and seconds < 30 then
-            if hmsFormat then
-                return T(_("%1m"), "0")
-            else
-                return "0'"
-            end
-        elseif withoutSeconds and seconds >= 30 then
-            if hmsFormat then
-                return T(_("%1m"), "1")
-            else
-                return "1'"
-            end
-        else
-            if hmsFormat then
-                return T(_("%1m%2s"), "0", string.format("%02.f", seconds))
-            else
-                return "0'" .. string.format("%02.f", seconds) .. "''"
-            end
-        end
-    else
-        local round = withoutSeconds and require("optmath").round or math.floor
-        local hours = string.format("%.f", math.floor(seconds / 3600))
-        local mins = string.format("%02.f", round(seconds / 60 - (hours * 60)))
-        if mins == "60" then
-            mins = string.format("%02.f", 0)
-            hours = string.format("%.f", hours + 1)
-        end
-        if withoutSeconds then
-            if hours == "0" then
-                mins = string.format("%.f", round(seconds / 60))
-                if hmsFormat then
-                    return T(_("%1m"), mins)
-                else
-                    return mins .. "'"
-                end
-            end
-            -- @translators This is the 'h' for hour, like in 1h30. This is a duration.
-            return T(_("%1h%2"), hours, mins)
-        end
-        local secs = string.format("%02.f", math.floor(seconds - hours * 3600 - mins * 60))
-        if hours == "0" then
-            mins = string.format("%.f", round(seconds / 60))
-            if hmsFormat then
-                -- @translators This is the 'm' for minute and the 's' for second, like in 1m30s. This is a duration.
-                return T(_("%1m%2s"), mins, secs)
-            else
-                return mins .. "'" .. secs .. "''"
-            end
+        -- @translators This is an abbreviation for the hour (unit time = 60 minutes).
+        date_format = date_format .. T(_("%1h"), hours)
+        marker_begin_string = true
+    end
+    if (min > 0 or marker_begin_string) or (min == 0 and withoutSeconds) then
+        if marker_begin_string then
+            min = string.format("%02.f", min)
         end
         if hmsFormat then
-            if secs == "00" then
-                -- @translators This is the 'h' for hour and the 'm' for minute, like in 1h30m. This is a duration.
-                return T(_("%1h%2m"), hours, mins)
+            if marker_begin_string and withoutSeconds then
+                date_format = date_format .. T(_("%1"), min)
             else
-                -- @translators This is the 'h' for hour, the 'm' for minute and the 's' for second, like in 1h30m30s. This is a duration.
-                return T(_("%1h%2m%3s"), hours, mins, secs)
+                -- @translators This is an abbreviation for the minute (unit time = 60 seconds).
+                date_format = date_format .. T(_("%1m"), min)
             end
-
         else
-            if secs == "00" then
-                return T(_("%1h%2'"), hours, mins)
+            if (tonumber(min) > 0 and not marker_begin_string) or not withoutSeconds or seconds < 30 then
+                date_format = date_format .. T(_("%1'"), min)
             else
-                return T(_("%1h%2'%3''"), hours, mins, secs)
+                date_format = date_format .. T(_("%1"), min)
             end
         end
+        marker_begin_string = true
     end
+    if not withoutSeconds then
+        if hmsFormat then
+            -- @translators This is an abbreviation for the second (unit time: 60 seconds = 1 minute).
+            date_format = date_format .. T(_("%1s"), sec)
+        else
+            date_format = date_format .. T(_("%1''"), sec)
+        end
+    end
+    return date_format
 end
-
 
 --[[--
 Compares values in two different tables.
