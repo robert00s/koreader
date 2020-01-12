@@ -470,6 +470,16 @@ function FileManagerMenu:setUpdateItemTable()
         end
     }
 
+    -- home page
+    self.menu_items.home_page = {
+        text = _("Home page"),
+        callback = function()
+            local HomePageWidget = require("ui/widget/homepagewidget")
+            local home_page = HomePageWidget:new{
+            }
+            UIManager:show(home_page)
+        end,
+    }
     -- main menu tab
     self.menu_items.open_last_document = {
         text_func = function()
