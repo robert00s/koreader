@@ -54,6 +54,92 @@ function HomePageWidget:init()
         }
     end
 
+    self.menu_items = {
+        ["KOMenu:menu_buttons"] = {
+            -- top menu
+        },
+        -- items in top menu
+        filemanager_settings = {
+            icon = "resources/icons/appbar.cabinet.files.png",
+            remember = false,
+        },
+        setting = {
+            icon = "resources/icons/appbar.settings.png",
+            remember = false,
+        },
+        tools = {
+            icon = "resources/icons/appbar.tools.png",
+        },
+        search = {
+            icon = "resources/icons/appbar.magnify.browse.png",
+        },
+        plus_menu = {
+            icon = "resources/icons/appbar.cabinet.files.png",
+            remember = false,
+            callback = function()
+                --self:onTapCloseMenu()
+                self.ui:onClose()
+                --self.ui:showFileManager()
+
+            end,
+        },
+        main = {
+            icon = "resources/icons/menu-icon.png",
+        },
+    }
+
+    local order = require("ui/elements/filemanager_menu_order1")
+
+    local MenuSorter = require("ui/menusorter")
+    self.tab_item_table = MenuSorter:mergeAndSort("filemanager", self.menu_items, order)
+
+
+    local TouchMenu = require("ui/widget/touchmenu")
+    local main_menu = TouchMenu:new{
+        width = Screen:getWidth(),
+        last_index = nil, --tab_index,
+        tab_item_table = self.tab_item_table,
+        show_parent = self,
+    }
+
+
+    local icon_set = {
+        {
+            icon = "resources/icons/appbar.settings.png",
+            callback = function() end,
+        },
+        {
+            icon = "resources/icons/appbar.magnify.browse.png",
+            callback = function() end,
+        },
+
+    }
+
+    local icon_widgets = HorizontalGroup:new{}
+    local icon_size = Screen:scaleBySize(40)
+    local spacing_width = 16
+    local icon_padding = math.min(spacing_width, Screen:scaleBySize(16))
+    for k, v in ipairs(icon_set) do
+        local ib = IconButton:new{
+            show_parent = self.show_parent,
+            icon_file = v.icon,
+            width = icon_size,
+            height = icon_size,
+            scale_for_dpi = false,
+            callback = v.callback ,
+            padding_left = icon_padding,
+            padding_right = icon_padding,
+            menu = self.menu,
+        }
+
+        table.insert(icon_widgets, ib)
+        --table.insert(self.menu.layout, ib) -- for the focusmanager
+
+    end
+
+
+
+--!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     local header_text = TextWidget:new{
         face = Font:getFace("infofont"),
@@ -131,7 +217,9 @@ function HomePageWidget:init()
 
     local content = VerticalGroup:new {
         align = "center",
-        header,
+        --main_menu,
+        --header,
+        icon_widgets,
         header_line,
     }
 
