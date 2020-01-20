@@ -4,6 +4,7 @@ local BottomContainer = require("ui/widget/container/bottomcontainer")
 local Button = require("ui/widget/button")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local CloseButton = require("ui/widget/closebutton")
+local DocSettings = require("docsettings")
 local DocumentRegistry = require("document/documentregistry")
 local Device = require("device")
 local Event = require("ui/event")
@@ -18,6 +19,7 @@ local ImageWidget = require("ui/widget/imagewidget")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local LeftContainer = require("ui/widget/container/leftcontainer")
 local LineWidget = require("ui/widget/linewidget")
+local Math = require("optmath")
 local OverlapGroup = require("ui/widget/overlapgroup")
 local ProgressWidget = require("ui/widget/progresswidget")
 local RenderImage = require("ui/renderimage")
@@ -33,6 +35,7 @@ local Input = Device.input
 local Screen = Device.screen
 local T = require("ffi/util").template
 local _ = require("gettext")
+local logger = require("logger")
 
 local HomePageWidget = InputContainer:new {
     width = nil,
@@ -312,16 +315,47 @@ function HomePageWidget:showLastBook()
     local last_file = G_reader_settings:readSetting("lastfile")
     self.small_font_face = Font:getFace("smallffont")
     self.medium_font_face = Font:getFace("ffont")
-    self.large_font_face = Font:getFace("largeffont")
 
-    local cover
+    local cover_book
+    local book_props
+
+    local doc_settings = DocSettings:open(last_file)
+    if doc_settings then
+        if not book_props then
+            -- Files opened after 20170701 have a 'doc_props' setting with
+            -- complete metadata and 'doc_pages' with accurate nb of pages
+            book_props = doc_settings:readSetting('doc_props')
+        end
+        if not book_props then
+            -- File last opened before 20170701 may have a 'stats' setting
+            -- with partial metadata, or empty metadata if statistics plugin
+            -- was not enabled when book was read (we can guess that from
+            -- the fact that stats.page = 0)
+            local stats = doc_settings:readSetting('stats')
+            if stats and stats.pages ~= 0 then
+                -- Let's use them as is (which was what was done before), even if
+                -- incomplete, to avoid expensive book opening
+                book_props = stats
+            end
+        end
+        -- Files opened after 20170701 have an accurate 'doc_pages' setting
+        local doc_pages = doc_settings:readSetting('doc_pages')
+
+        if doc_pages and book_props then
+            book_props.pages = doc_pages
+        end
+
+        local percent_finished = doc_settings:readSetting('percent_finished')
+        book_props.percent_finished = percent_finished
+    end
+
     local document = DocumentRegistry:openDocument(last_file)
     if document then
         if document.loadDocument then
             -- CreDocument
             document:loadDocument(false) -- load only metadata
         end
-        cover = document:getCoverPageImage()
+        cover_book = document:getCoverPageImage()
         DocumentRegistry:closeDocument(last_file)
     end
 
@@ -339,90 +373,78 @@ function HomePageWidget:showLastBook()
 
     local height = img_height
     local width = screen_width - split_span_width - img_width
-    -- title
-    local book_meta_info_group = VerticalGroup:new{
-        align = "center",
-        VerticalSpan:new{ width = height * 0.2 },
-        TextBoxWidget:new{
-            text = "BBBBB",--self.props.title,
-            width = width,
-            face = self.medium_font_face,
-            alignment = "center",
-        },
 
-    }
     -- author
-    local text_author = TextBoxWidget:new{
-        text = "AAAA", --self.props.authors,
+    local book_author = TextBoxWidget:new{
+        text = book_props.authors,
         face = self.small_font_face,
         width = width,
         alignment = "center",
     }
-    table.insert(book_meta_info_group,
-        CenterContainer:new{
-            dimen = Geom:new{ w = width, h = text_author:getSize().h },
-            text_author
-        }
-    )
-    -- progress bar
-    local read_percentage = 0,3 --self.view.state.page / self.total_pages
-    local progress_bar = ProgressWidget:new{
-        width = width * 0.7,
-        height = Screen:scaleBySize(10),
-        percentage = read_percentage,
-        ticks = nil,
-        last = nil,
+    -- title
+    local book_title =  TextBoxWidget:new{
+        text = book_props.title,
+        width = width,
+        face = self.medium_font_face,
+        bold = true,
+        alignment = "center",
     }
-    table.insert(book_meta_info_group,
-        CenterContainer:new{
-            dimen = Geom:new{ w = width, h = progress_bar:getSize().h },
-            progress_bar
-        }
-    )
-    -- complete text
-    local text_complete = TextWidget:new{
-        text = T(_("%1% Completed"),
-            string.format("%1.f", read_percentage * 100)),
+
+    local span_title_read = VerticalSpan:new{ width = height * 0.1 }
+
+    local current_page = Math.round(book_props.percent_finished * book_props.pages)
+    local percent = Math.round(book_props.percent_finished * 100)
+
+    local book_read =  TextBoxWidget:new{
+        text = T(_("Read: %1/%2 (%3%)"), current_page, book_props.pages, percent),
+        width = width,
         face = self.small_font_face,
+        alignment = "center",
     }
-    table.insert(book_meta_info_group,
-        CenterContainer:new{
-            dimen = Geom:new{ w = width, h = text_complete:getSize().h },
-            text_complete
-        }
-    )
-    -- build the final group
-    local book_info_group = HorizontalGroup:new{
-        align = "top",
-        HorizontalSpan:new{ width =  split_span_width }
+
+    local progress_line = ProgressWidget:new{
+        width = self.width * 0.4,
+        height = nil,
+        percentage = book_props.percent_finished,
     }
-    -- thumbnail
-    if cover then
+    progress_line:updateStyle(false, 3)
+
+    local book_info = VerticalGroup:new{
+        align = "center",
+        book_author,
+        book_title,
+        span_title_read,
+        book_read,
+        progress_line,
+    }
+
+    -- cover
+    local cover_image
+    if cover_book then
         -- Much like BookInfoManager, honor AR here
-        local cbb_w, cbb_h = cover:getWidth(), cover:getHeight()
+        local cbb_w, cbb_h = cover_book:getWidth(), cover_book:getHeight()
         if cbb_w > img_width or cbb_h > img_height then
             local scale_factor = math.min(img_width / cbb_w, img_height / cbb_h)
             cbb_w = math.min(math.floor(cbb_w * scale_factor)+1, img_width)
             cbb_h = math.min(math.floor(cbb_h * scale_factor)+1, img_height)
-            cover = RenderImage:scaleBlitBuffer(cover, cbb_w, cbb_h, true)
+            cover_book = RenderImage:scaleBlitBuffer(cover_book, cbb_w, cbb_h, true)
         end
-
-        table.insert(book_info_group, ImageWidget:new{
-            image = cover,
+        cover_image = ImageWidget:new{
+            image = cover_book,
             width = cbb_w,
             height = cbb_h,
-        })
+        }
         -- dereference thumbnail since we let imagewidget manages its lifecycle
-        cover = nil
+        cover_book = nil
     end
 
-    table.insert(book_info_group, CenterContainer:new{
-        dimen = Geom:new{ w = width, h = height },
-        book_meta_info_group,
-    })
+    local book_info_group = HorizontalGroup:new{
+        cover_image,
+        book_info,
+    }
 
     return CenterContainer:new{
-        dimen = Geom:new{ w = screen_width, h = img_height },
+        dimen = Geom:new{ w = self.width, h = img_height },
         book_info_group,
     }
 
