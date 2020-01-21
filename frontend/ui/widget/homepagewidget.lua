@@ -2,6 +2,7 @@ local BD = require("ui/bidi")
 local Blitbuffer = require("ffi/blitbuffer")
 local BottomContainer = require("ui/widget/container/bottomcontainer")
 local Button = require("ui/widget/button")
+local ButtonTable = require("ui/widget/buttontable")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local CloseButton = require("ui/widget/closebutton")
 local DocSettings = require("docsettings")
@@ -24,6 +25,7 @@ local OverlapGroup = require("ui/widget/overlapgroup")
 local ProgressWidget = require("ui/widget/progresswidget")
 local RenderImage = require("ui/renderimage")
 local Size = require("ui/size")
+local TabPanelWidget = require("ui/widget/tabpanelwidget")
 local TextViewer = require("ui/widget/textviewer")
 local TextBoxWidget = require("ui/widget/textboxwidget")
 local TextWidget = require("ui/widget/textwidget")
@@ -290,13 +292,19 @@ function HomePageWidget:init()
         text_now_reading
     }
 
+    local tab_panel = TabPanelWidget:new{
+        height = self.height * 0.2,
+        width = self.width,
+    }
+
     local content = VerticalGroup:new {
         align = "center",
         icon_widgets,
         header_line,
         now_reading,
-        self:showLastBook()
-        --button switch
+        self:showLastBook(),
+        --self:showTabSwitch(),
+        tab_panel,
         --button select
         --footer
     }
@@ -446,6 +454,48 @@ function HomePageWidget:showLastBook()
     return CenterContainer:new{
         dimen = Geom:new{ w = self.width, h = img_height },
         book_info_group,
+    }
+
+end
+
+function HomePageWidget:showTabSwitch()
+
+    local buttons = {
+        {
+            {
+                text = _("History"),
+                callback = function()
+                end,
+            },
+            {
+                text = _("Favorites"),
+                callback = function()
+                end,
+            },
+            {
+                text = _("Stats"),
+                callback = function()
+                end,
+            },
+        }
+    }
+
+
+    local button_table = ButtonTable:new{
+        width = self.width,
+        button_font_face = "cfont",
+        button_font_size = 18,
+        buttons =  buttons,
+        zero_sep = false,
+        sep_width = 0,
+        --padding = 20,
+        show_parent = self,
+    }
+
+
+    return CenterContainer:new{
+        dimen = Geom:new{ w = self.width, h = self.height * 0.1 },
+        button_table,
     }
 
 end
