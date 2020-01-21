@@ -217,7 +217,7 @@ end
 
 function Button:onTapSelectButton()
     if self.enabled and self.callback then
-        if G_reader_settings:isFalse("flash_ui") then
+        if G_reader_settings:isFalse("flash_ui") or self.no_flash then
             self.callback()
         else
             -- For most of our buttons, we can't avoid that initial repaint...

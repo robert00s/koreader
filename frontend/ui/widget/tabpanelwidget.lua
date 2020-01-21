@@ -32,6 +32,7 @@ local TopContainer = require("ui/widget/container/topcontainer")
 local UIManager = require("ui/uimanager")
 local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
+local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local Input = Device.input
 local Screen = Device.screen
 local T = require("ffi/util").template
@@ -43,16 +44,16 @@ local TabPanelWidget = InputContainer:new {
     height = nil,
     tabs = {
         { text = "Tab1" },
-        { text = "Tab2"},
-        { text = "Tab3"},
-        { text = "Tab3"},
+        { text = "Tab2" },
+        { text = "Tab3" },
+        { text = "Tab4" },
     },
-    select = 2, -- current selected tab
+    select = 1, -- current selected tab
 }
 
 function TabPanelWidget:init()
-    self.width = Screen:getWidth()
-    self.height = Screen:getHeight()
+    --self.width = Screen:getWidth()
+    --self.height = Screen:getHeight()
     self.dimen = Geom:new {
         w = self.width,
         h = self.height,
@@ -71,32 +72,47 @@ function TabPanelWidget:init()
             }
         }
     end
+    self.tab_group = HorizontalGroup:new{}
+    self.line_select = HorizontalGroup:new{}
 
-    local tabs = HorizontalGroup:new{}
-    local line_select = HorizontalGroup:new{}
-    local element
-    local line_no_select = LineWidget:new{
-        background = Blitbuffer.COLOR_LIGHT_GRAY,
-        dimen = Geom:new{
-            w = math.floor(self.width / #self.tabs),
-            h = Size.line.thick,
-        }
+
+    self:update()
+
+    self[1] = FrameContainer:new {
+        height = self.height,
+        padding = 0,
+        bordersize = 0,
+        background = Blitbuffer.COLOR_WHITE,
+        self.content
     }
 
+
+end
+
+
+function TabPanelWidget:update()
+    print("*************************")
+    print(self.select)
+    self.tab_group:clear()
+    self.line_select:clear()
+    --self.content:resetLayout()
+    local element
     local element_width = math.floor(self.width / #self.tabs)
     local line_width
     for i = 1, #self.tabs do
         element = Button:new {
             text = self.tabs[i].text,
-            --text_func = btn_entry.text_func,
             --enabled = btn_entry.enabled,
             callback = function()
                 print("$$$$$$$$$$$$$$$$$$$$$$$$$$$")
                 print(self.select)
                 self.select = i
                 print(self.select)
-                self:init()
+                self:update()
+                --UIManager:setDirty("all")
+                --UIManager:setDirty(self, "ui")
             end,
+            no_flash = true,
             width = element_width -2,
             max_width = element_width -2,
             bordersize = 0,
@@ -123,34 +139,43 @@ function TabPanelWidget:init()
             }
         }
 
-        table.insert(tabs, element)
-        table.insert(line_select, line)
+        table.insert(self.tab_group, element)
+        table.insert(self.line_select, line)
     end
 
-
-
-    --local line_select = nil
     local panel = nil
     local footer = nil
 
-    local content = VerticalGroup:new{
-        tabs,
-        line_select,
-        panel,
-        footer,
+    self.content = VerticalGroup:new{
+        self.tab_group,
+        self.line_select,
+        --panel,
+        --footer,
     }
 
-    self[1] = FrameContainer:new {
-        height = self.height,
-        padding = 0,
-        bordersize = 0,
-        background = Blitbuffer.COLOR_WHITE,
-        content
+    --local dimen = Geom:new{ x = 0 , y=0, w = self.width, h = self.content:getSize().h }
+    --UIManager:setDirty(self.parrent, function()
+    --    return "ui", self.dimen
+    --end)
+    --UIManager:setDirty(self.show_parrent, "ui")
+    --return true
+
+
+
+    local dimen = Geom:new {
+        x = 0,
+        y = 0,
+        w = Screen:getWidth(),
+        h = Screen:getHeight(),
     }
-end
 
 
-function TabPanelWidget:update()
+
+    UIManager:setDirty(self.content, function()
+        return "ui", dimen
+    end)
+    UIManager:setDirty("all")
+    --UIManager:setDirty(self, "ui", nil, true)
 
 end
 
