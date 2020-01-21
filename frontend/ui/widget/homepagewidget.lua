@@ -295,6 +295,7 @@ function HomePageWidget:init()
     local tab_panel = TabPanelWidget:new{
         height = self.height * 0.2,
         width = self.width,
+        show_parent = self
     }
 
     local content = VerticalGroup:new {

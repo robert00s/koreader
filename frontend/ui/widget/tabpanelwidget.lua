@@ -43,8 +43,8 @@ local TabPanelWidget = InputContainer:new {
     width = nil,
     height = nil,
     tabs = {
-        { text = "Tab1" },
-        { text = "Tab2" },
+        { text = "Tab1", callback = function() end },
+        { text = "Tab2", callback = function() end  },
         { text = "Tab3" },
         { text = "Tab4" },
     },
@@ -52,12 +52,20 @@ local TabPanelWidget = InputContainer:new {
 }
 
 function TabPanelWidget:init()
-    --self.width = Screen:getWidth()
-    --self.height = Screen:getHeight()
-    self.dimen = Geom:new {
-        w = self.width,
-        h = self.height,
+    self.frame = FrameContainer:new {
+        height = self.height,
+        padding = 0,
+        bordersize = 0,
+        background = Blitbuffer.COLOR_WHITE,
     }
+
+    self.tab_group = HorizontalGroup:new{}
+    self.line_select = HorizontalGroup:new{}
+
+    self:update()
+    self.frame[1] = self.content
+    self[1] = self.frame
+    self.dimen = Geom:new(self.frame:getSize())
 
     if Device:hasKeys() then
         self.key_events = {
@@ -72,45 +80,25 @@ function TabPanelWidget:init()
             }
         }
     end
-    self.tab_group = HorizontalGroup:new{}
-    self.line_select = HorizontalGroup:new{}
-
-
-    self:update()
-
-    self[1] = FrameContainer:new {
-        height = self.height,
-        padding = 0,
-        bordersize = 0,
-        background = Blitbuffer.COLOR_WHITE,
-        self.content
-    }
-
 
 end
 
 
 function TabPanelWidget:update()
-    print("*************************")
-    print(self.select)
     self.tab_group:clear()
     self.line_select:clear()
-    --self.content:resetLayout()
     local element
     local element_width = math.floor(self.width / #self.tabs)
     local line_width
     for i = 1, #self.tabs do
         element = Button:new {
             text = self.tabs[i].text,
-            --enabled = btn_entry.enabled,
             callback = function()
-                print("$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-                print(self.select)
                 self.select = i
-                print(self.select)
                 self:update()
-                --UIManager:setDirty("all")
-                --UIManager:setDirty(self, "ui")
+                if self.tabs[i].callback then
+                    self.tabs[i].callback()
+                end
             end,
             no_flash = true,
             width = element_width -2,
@@ -119,14 +107,12 @@ function TabPanelWidget:update()
             margin = 0,
             padding = 0,
             radius = 0,
-            --text_font_face = self.button_font_face,
-            --text_font_size = self.button_font_size,
             text_font_bold = i == self. select,
             show_parent = self,
         }
 
         if i == #self.tabs then
-            line_width = element_width +1
+            line_width = element_width
         else
             line_width = element_width
         end
@@ -149,34 +135,13 @@ function TabPanelWidget:update()
     self.content = VerticalGroup:new{
         self.tab_group,
         self.line_select,
-        --panel,
-        --footer,
+      --panel,
+      --footer,
     }
 
-    --local dimen = Geom:new{ x = 0 , y=0, w = self.width, h = self.content:getSize().h }
-    --UIManager:setDirty(self.parrent, function()
-    --    return "ui", self.dimen
-    --end)
-    --UIManager:setDirty(self.show_parrent, "ui")
-    --return true
-
-
-
-    local dimen = Geom:new {
-        x = 0,
-        y = 0,
-        w = Screen:getWidth(),
-        h = Screen:getHeight(),
-    }
-
-
-
-    UIManager:setDirty(self.content, function()
-        return "ui", dimen
+    UIManager:setDirty(self.show_parent, function()
+        return "ui", self.dimen
     end)
-    UIManager:setDirty("all")
-    --UIManager:setDirty(self, "ui", nil, true)
-
 end
 
 --function TabPanelWidget:getSize()
