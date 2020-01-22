@@ -39,13 +39,15 @@ local T = require("ffi/util").template
 local _ = require("gettext")
 local logger = require("logger")
 
-local TabPanelWidget = InputContainer:new {
+local BookInfoManager = require("bookinfomanager")
+
+local RowCoverWidget = InputContainer:new {
     width = nil,
     height = nil,
-    select = 1, -- current selected tab
+    per_page = 3,
 }
 
-function TabPanelWidget:init()
+function RowCoverWidget:init()
     self.frame = FrameContainer:new {
         height = self.height,
         padding = 0,
@@ -54,7 +56,6 @@ function TabPanelWidget:init()
     }
 
     self.tab_group = HorizontalGroup:new{}
-    self.line_select = HorizontalGroup:new{}
 
     self:update()
     self.frame[1] = self.content
@@ -76,54 +77,45 @@ function TabPanelWidget:init()
     end
 end
 
-function TabPanelWidget:update()
+function RowCoverWidget:update()
     self.tab_group:clear()
-    self.line_select:clear()
-    local element
-    local element_width = math.floor(self.width / #self.tabs)
-    local line_width
-    for i = 1, #self.tabs do
-        element = Button:new {
-            text = self.tabs[i].text,
-            callback = function()
-                self.select = i
-                self:update()
-                if self.tabs[i].callback then
-                    self.tabs[i].callback()
-                end
-            end,
-            no_flash = true,
-            width = element_width -2,
-            max_width = element_width -2,
-            bordersize = 0,
-            margin = 0,
-            padding = 0,
-            radius = 0,
-            text_font_bold = i == self. select,
-            show_parent = self,
-        }
-
-        if i == #self.tabs then
-            line_width = element_width
-        else
-            line_width = element_width
-        end
-
-        local line = LineWidget:new{
-            background = i == self. select and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_LIGHT_GRAY,
-            dimen = Geom:new{
-                w = line_width,
-                h = Size.line.thick,
+    local widget
+    local border_size = Screen:scaleBySize(2)
+    local dimen = Geom:new{
+        w = math.floor((self.width * 0.95) / self.per_page),
+        h = self.height
+    }
+    for i = 1, #self.elements do
+        local bookinfo = BookInfoManager:getBookInfo(self.elements[i].file, true)
+        if bookinfo.has_cover and not bookinfo.ignore_cover then
+            -- Let ImageWidget do the scaling and give us a bb that fit
+            local scale_factor = 1.2 --math.min(max_img_w / bookinfo.cover_w, max_img_h / bookinfo.cover_h)
+            local image = ImageWidget:new{
+                image = bookinfo.cover_bb,
+                scale_factor = scale_factor,
             }
-        }
-
-        table.insert(self.tab_group, element)
-        table.insert(self.line_select, line)
+            image:_render()
+            local image_size = image:getSize()
+            widget = CenterContainer:new{
+                dimen = dimen,
+                FrameContainer:new{
+                    width = image_size.w + 2*border_size,
+                    height = image_size.h + 2*border_size,
+                    margin = 0,
+                    padding = 0,
+                    bordersize = border_size,
+                    --dim = self.file_deleted,
+                    --color = self.file_deleted and Blitbuffer.COLOR_DARK_GRAY or nil,
+                    image,
+                }
+            }
+            table.insert(self.tab_group, widget)
+        end
     end
 
-    self.content = VerticalGroup:new{
+    self.content = LeftContainer:new{
+        dimen = {w = self.width * 0.95, h = self.height},
         self.tab_group,
-        self.line_select,
     }
 
     UIManager:setDirty(self.show_parent, function()
@@ -131,9 +123,13 @@ function TabPanelWidget:update()
     end)
 end
 
-function TabPanelWidget:onClose()
+--function TabPanelWidget:getSize()
+--    --return
+--end
+
+function RowCoverWidget:onClose()
     UIManager:close(self)
     return true
 end
 
-return TabPanelWidget
+return RowCoverWidget

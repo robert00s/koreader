@@ -24,6 +24,7 @@ local Math = require("optmath")
 local OverlapGroup = require("ui/widget/overlapgroup")
 local ProgressWidget = require("ui/widget/progresswidget")
 local RenderImage = require("ui/renderimage")
+local RowCoverWidget = require("ui/widget/rowcoverwidget")
 local Size = require("ui/size")
 local TabPanelWidget = require("ui/widget/tabpanelwidget")
 local TextViewer = require("ui/widget/textviewer")
@@ -295,18 +296,27 @@ function HomePageWidget:init()
     local tab_panel = TabPanelWidget:new{
         height = self.height * 0.2,
         width = self.width,
+        tabs = {
+            { text = "History", callback = function() end },
+            { text = "Favorites", callback = function() end  },
+            { text = "Statistics" },
+        },
         show_parent = self
     }
+
+    local vertical_span = VerticalSpan:new{ width = self.height * 0.04 }
 
     local content = VerticalGroup:new {
         align = "center",
         icon_widgets,
         header_line,
         now_reading,
+        --vertical_span,
         self:showLastBook(),
-        --self:showTabSwitch(),
+        vertical_span,
         tab_panel,
-        --button select
+        self:showHistoryPanel(),
+        header_line,
         --footer
     }
 
@@ -459,48 +469,19 @@ function HomePageWidget:showLastBook()
 
 end
 
-function HomePageWidget:showTabSwitch()
-
-    local buttons = {
-        {
-            {
-                text = _("History"),
-                callback = function()
-                end,
-            },
-            {
-                text = _("Favorites"),
-                callback = function()
-                end,
-            },
-            {
-                text = _("Stats"),
-                callback = function()
-                end,
-            },
-        }
-    }
-
-
-    local button_table = ButtonTable:new{
+function HomePageWidget:showHistoryPanel()
+    local hist = require("readhistory").hist
+    local last_history = {}
+    for i = 2, 4 do
+        table.insert(last_history, { file = hist[i].file })
+    end
+    return RowCoverWidget:new{
+        height = self.height * 0.39,
         width = self.width,
-        button_font_face = "cfont",
-        button_font_size = 18,
-        buttons =  buttons,
-        zero_sep = false,
-        sep_width = 0,
-        --padding = 20,
-        show_parent = self,
+        elements = last_history,
+        show_parent = self
     }
-
-
-    return CenterContainer:new{
-        dimen = Geom:new{ w = self.width, h = self.height * 0.1 },
-        button_table,
-    }
-
 end
-
 function HomePageWidget:onClose()
     UIManager:close(self)
     return true
