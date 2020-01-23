@@ -2,9 +2,7 @@ local BD = require("ui/bidi")
 local Blitbuffer = require("ffi/blitbuffer")
 local BottomContainer = require("ui/widget/container/bottomcontainer")
 local Button = require("ui/widget/button")
-local ButtonTable = require("ui/widget/buttontable")
 local CenterContainer = require("ui/widget/container/centercontainer")
-local CloseButton = require("ui/widget/closebutton")
 local DocSettings = require("docsettings")
 local DocumentRegistry = require("document/documentregistry")
 local Device = require("device")
@@ -24,21 +22,69 @@ local Math = require("optmath")
 local OverlapGroup = require("ui/widget/overlapgroup")
 local ProgressWidget = require("ui/widget/progresswidget")
 local RenderImage = require("ui/renderimage")
+local RightContainer = require("ui/widget/container/rightcontainer")
 local RowCoverWidget = require("ui/widget/rowcoverwidget")
 local Size = require("ui/size")
 local TabPanelWidget = require("ui/widget/tabpanelwidget")
-local TextViewer = require("ui/widget/textviewer")
 local TextBoxWidget = require("ui/widget/textboxwidget")
 local TextWidget = require("ui/widget/textwidget")
 local TopContainer = require("ui/widget/container/topcontainer")
 local UIManager = require("ui/uimanager")
 local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
-local Input = Device.input
 local Screen = Device.screen
 local T = require("ffi/util").template
 local _ = require("gettext")
 local logger = require("logger")
+
+local top_icon_set = {
+    {
+        icon = "resources/icons/menu-icon.png",
+        callback = function() end,
+    },
+    {
+        icon = "resources/icons/appbar.cabinet.files.png",
+        callback = function()
+            UIManager:nextTick(function()
+                self:onClose()
+            end)
+        end,
+    },
+    {
+        --https://materialdesignicons.com/
+        icon = "resources/icons/history.png",
+        callback = function()
+            local FileManagerHistory = require("apps/filemanager/filemanagerhistory")
+            FileManagerHistory:onShowHist()
+            -- update panel with history
+        end,
+    },
+    {
+        -- favorites
+        --https://github.com/encharm/Font-Awesome-SVG-PNG/blob/master/black/png/64/star-o.png
+        --https://materialdesignicons.com/
+        icon = "resources/icons/star.png",
+        callback = function()
+            local FileManagerCollection = require("apps/filemanager/filemanagercollection")
+            FileManagerCollection:onShowColl("favorites")
+            -- update panel with favorites
+        end,
+    },
+    {
+        -- frontlight
+        --http://modernuiicons.com/
+        icon = "resources/icons/sunny.png",
+        callback = function()
+            local is_docless = self.ui == nil or self.ui.document == nil
+            if is_docless then
+                local ReaderFrontLight = require("apps/reader/modules/readerfrontlight")
+                ReaderFrontLight:onShowFlDialog()
+            else
+                self.ui:handleEvent(Event:new("ShowFlDialog"))
+            end
+        end,
+    },
+}
 
 local HomePageWidget = InputContainer:new {
     width = nil,
@@ -46,6 +92,8 @@ local HomePageWidget = InputContainer:new {
 }
 
 function HomePageWidget:init()
+    -- to update
+    self.selected_panel = 2
     self.width = Screen:getWidth()
     self.height = Screen:getHeight()
     self.dimen = Geom:new {
@@ -102,10 +150,8 @@ function HomePageWidget:init()
     }
 
     local order = require("ui/elements/filemanager_menu_order")
-
     local MenuSorter = require("ui/menusorter")
     self.tab_item_table = MenuSorter:mergeAndSort("filemanager", self.menu_items, order)
-
 
     local TouchMenu = require("ui/widget/touchmenu")
     local main_menu = TouchMenu:new{
@@ -115,77 +161,16 @@ function HomePageWidget:init()
         show_parent = self,
     }
 
-
-    local icon_set = {
-        {
-            icon = "resources/icons/menu-icon.png",
-            callback = function() end,
-        },
-        {
-            icon = "resources/icons/appbar.cabinet.files.png",
-            callback = function()
-                UIManager:nextTick(function()
-                    self:onClose()
-                end)
-                --UIManager:close(self)
-                --
-            end,
-        },
-
-        {
-            --https://materialdesignicons.com/
-
-            icon = "resources/icons/history.png",
-            callback = function()
-                --self.ui:handleEvent(Event:new("ShowHist"))
-                local FileManagerHistory = require("apps/filemanager/filemanagerhistory")
-                    FileManagerHistory:onShowHist()
-            end,
-        },
-        {
-            -- favorites
-            --https://github.com/encharm/Font-Awesome-SVG-PNG/blob/master/black/png/64/star-o.png
-            --https://materialdesignicons.com/
-            icon = "resources/icons/star.png",
-            callback = function()
-                --self.ui:handleEvent(Event:new("ShowColl", "favorites"))
-                local FileManagerCollection = require("apps/filemanager/filemanagercollection")
-                FileManagerCollection:onShowColl("favorites")
-            end,
-        },
-        {
-            -- frontlight
-            --http://modernuiicons.com/
-            icon = "resources/icons/sunny.png",
-            callback = function()
-                local is_docless = self.ui == nil or self.ui.document == nil
-                if is_docless then
-                    local ReaderFrontLight = require("apps/reader/modules/readerfrontlight")
-                    ReaderFrontLight:onShowFlDialog()
-                else
-                    self.ui:handleEvent(Event:new("ShowFlDialog"))
-                end
-            end,
-        },
-
-    }
-
-
-
     local icon_widgets = HorizontalGroup:new{}
     local icon_size = Screen:scaleBySize(40)
 
-
-
     local spacing_width = 16
-    local size = #icon_set * icon_size
-    print("###################################33")
-    print(icon_size, size)
+    local size = #top_icon_set * icon_size
 
-    local icon_padding = math.floor((Screen:getWidth() - size) / (2* #icon_set))
+    local icon_padding = math.floor((Screen:getWidth() - size) / (2* #top_icon_set))
 
     --local icon_padding = math.min(spacing_width, Screen:scaleBySize(16))
-    for k, v in ipairs(icon_set) do
+    for _, v in ipairs(top_icon_set) do
         local ib = IconButton:new{
             show_parent = self.show_parent,
             icon_file = v.icon,
@@ -199,45 +184,8 @@ function HomePageWidget:init()
             padding_right = icon_padding,
             --menu = self.menu,
         }
-
         table.insert(icon_widgets, ib)
-        --table.insert(self.menu.layout, ib) -- for the focusmanager
-
     end
-
-
-
---!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-    local header_text = TextWidget:new{
-        face = Font:getFace("infofont"),
-        text = "header",
-    }
-
-    local icon_size = Screen:scaleBySize(35)
-    local home_button = IconButton:new{
-        icon_file = "resources/icons/appbar.home.png",
-        scale_for_dpi = false,
-        width = icon_size,
-        height = icon_size,
-        padding = Size.padding.default,
-        padding_left = Size.padding.large,
-        padding_right = Size.padding.large,
-        --padding_bottom = 0,
-        callback = function() end,
-        hold_callback = function() end,
-    }
-
-
-
-
-    local header = HorizontalGroup:new{
-        home_button,
-        home_button,
-    }
-
-    print("*************************************")
-    print(header:getSize().h)
 
     local header_line = LineWidget:new{
         background = Blitbuffer.COLOR_LIGHT_GRAY,
@@ -247,39 +195,8 @@ function HomePageWidget:init()
         }
     }
 
-
-    local footer_text = TextWidget:new{
-        face = Font:getFace("infofont"),
-        text = "footer",
-    }
-
-    --local header = TopContainer:new {
-    --    dimen = self.dimen:copy(),
-    --    header_text,
-    --}
-
-
-    local footer = BottomContainer:new {
-        dimen = self.dimen:copy(),
-        footer_text,
-    }
-
-
-
-    local padding = Size.padding.large
     self.pages = 1 --math.ceil(#self.kv_pairs / self.items_per_page)
     self.main_content = VerticalGroup:new {}
-
-
-    local content1 = OverlapGroup:new {
-        dimen = self.dimen:copy(),
-        allow_mirroring = false,
-        VerticalGroup:new {
-            align = "left",
-            self.main_content,
-        },
-        --footer,
-    }
 
     local text_now_reading = TextWidget:new{
         text = _("Reading now"),
@@ -294,11 +211,22 @@ function HomePageWidget:init()
     }
 
     local tab_panel = TabPanelWidget:new{
-        height = self.height * 0.2,
+        height = self.height * 0.15,
         width = self.width,
+        select = self.selected_panel,
         tabs = {
-            { text = "History", callback = function() end },
-            { text = "Favorites", callback = function() end  },
+            {
+                text = "History",
+                callback = function()
+                    self:updatePanel(1)
+                end
+            },
+            {
+                text = "Favorites",
+                callback = function()
+                    self:updatePanel(2)
+                end
+            },
             { text = "Statistics" },
         },
         show_parent = self
@@ -306,28 +234,122 @@ function HomePageWidget:init()
 
     local vertical_span = VerticalSpan:new{ width = self.height * 0.04 }
 
-    local content = VerticalGroup:new {
-        align = "center",
-        icon_widgets,
-        header_line,
-        now_reading,
-        --vertical_span,
-        self:showLastBook(),
-        vertical_span,
-        tab_panel,
-        self:showHistoryPanel(),
-        header_line,
-        --footer
+    local text_footer = TextWidget:new{
+        text = self:buildFooterText(),
+        face = Font:getFace("ffont", 16),
+    }
+
+    local footer_text_container =  RightContainer:new{
+        dimen = Geom:new{w = self.width * 0.95, h = text_footer:getSize().h},
+        text_footer
+    }
+
+    local top_icon_contener = TopContainer:new{
+        dimen = Geom:new{ w = self.width, h = self.height * 0.1   },
+        VerticalGroup:new{
+            icon_widgets,
+            header_line
+        }
+    }
+
+    self.content_panel = FrameContainer:new{
+        padding = 0,
+        bordersize = 0,
+        background = Blitbuffer.COLOR_WHITE,
+    }
+
+    self:updatePanel(self.selected_panel, true)
+
+    local center_page_container = CenterContainer:new{
+        dimen = Geom:new{ w = self.width, h = self.height * 0.85  },
+        VerticalGroup:new{
+            now_reading,
+            self:showLastBook(),
+            vertical_span,
+            tab_panel,
+            self.content_panel,
+        }
+    }
+
+    local footer_container = BottomContainer:new{
+        dimen = Geom:new{ w = self.width, h = self.height * 0.05 },
+        VerticalGroup:new{
+            header_line,
+            footer_text_container
+        }
+    }
+
+    local content = VerticalGroup:new{
+        top_icon_contener,
+        center_page_container,
+        footer_container,
     }
 
     -- assemble page
     self[1] = FrameContainer:new {
-        height = self.dimen.h,
+        height = self.height,
         padding = 0,
         bordersize = 0,
         background = Blitbuffer.COLOR_WHITE,
         content
     }
+end
+
+function HomePageWidget:buildFooterText()
+    local time_info_txt = ""
+
+    if Device:hasFrontlight() then
+        local frontlight_icon = "☼"
+
+        local powerd = Device:getPowerDevice()
+        if powerd:isFrontlightOn() then
+            if Device:isCervantes() or Device:isKobo() then
+                time_info_txt = (frontlight_icon .. "%d%%"):format(powerd:frontlightIntensity())
+            else
+                time_info_txt = (frontlight_icon .. "%d"):format(powerd:frontlightIntensity())
+            end
+        else
+            time_info_txt = T(_("%1 Off"), frontlight_icon)
+        end
+    end
+
+    if G_reader_settings:nilOrTrue("twelve_hour_clock") then
+        time_info_txt = time_info_txt .. " " .. os.date("⌚ %I:%M %p")
+    else
+        time_info_txt = time_info_txt .. " " .. os.date("⌚ %H:%M")
+    end
+    local powerd = Device:getPowerDevice()
+    local batt_lvl = powerd:getCapacity()
+    local batt_symbol
+    if powerd:isCharging() then
+        batt_symbol = ""
+    else
+        if batt_lvl >= 100 then
+            batt_symbol = ""
+        elseif batt_lvl >= 90 then
+            batt_symbol = ""
+        elseif batt_lvl >= 80 then
+            batt_symbol = ""
+        elseif batt_lvl >= 70 then
+            batt_symbol = ""
+        elseif batt_lvl >= 60 then
+            batt_symbol = ""
+        elseif batt_lvl >= 50 then
+            batt_symbol = ""
+        elseif batt_lvl >= 40 then
+            batt_symbol = ""
+        elseif batt_lvl >= 30 then
+            batt_symbol = ""
+        elseif batt_lvl >= 20 then
+            batt_symbol = ""
+        elseif batt_lvl >= 10 then
+            batt_symbol = ""
+        else
+            batt_symbol = ""
+        end
+    end
+    time_info_txt = BD.wrap(time_info_txt) .. " " .. BD.wrap("⌁") .. BD.wrap(batt_symbol) ..  BD.wrap(batt_lvl .. "%")
+    return time_info_txt
 end
 
 function HomePageWidget:showLastBook()
@@ -476,12 +498,38 @@ function HomePageWidget:showHistoryPanel()
         table.insert(last_history, { file = hist[i].file })
     end
     return RowCoverWidget:new{
-        height = self.height * 0.39,
+        height = self.height * 0.38,
         width = self.width,
         elements = last_history,
         show_parent = self
     }
 end
+
+function HomePageWidget:showFavoritesPanel()
+    local coll = require("readcollection"):read()
+    local last_collection = {}
+    for i = 1, 3 do
+        table.insert(last_collection, { file = coll[i].file })
+    end
+    return RowCoverWidget:new{
+        height = self.height * 0.38,
+        width = self.width,
+        elements = last_collection,
+        show_parent = self
+    }
+end
+
+function HomePageWidget:updatePanel(id, force)
+    if force or self.selected_panel ~= id then
+        if id == 1 then
+            self.content_panel[1] = self:showHistoryPanel()
+        elseif id == 2 then
+            self.content_panel[1] = self:showFavoritesPanel()
+        end
+        self.selected_panel = id
+    end
+end
+
 function HomePageWidget:onClose()
     UIManager:close(self)
     return true
