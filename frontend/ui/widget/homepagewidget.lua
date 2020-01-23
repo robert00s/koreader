@@ -37,6 +37,11 @@ local T = require("ffi/util").template
 local _ = require("gettext")
 local logger = require("logger")
 
+local HomePageWidget = InputContainer:new {
+    width = nil,
+    height = nil,
+}
+
 local top_icon_set = {
     {
         icon = "resources/icons/menu-icon.png",
@@ -44,9 +49,9 @@ local top_icon_set = {
     },
     {
         icon = "resources/icons/appbar.cabinet.files.png",
-        callback = function()
+        callback = function(instance)
             UIManager:nextTick(function()
-                self:onClose()
+                instance:onClose()
             end)
         end,
     },
@@ -74,21 +79,16 @@ local top_icon_set = {
         -- frontlight
         --http://modernuiicons.com/
         icon = "resources/icons/sunny.png",
-        callback = function()
-            local is_docless = self.ui == nil or self.ui.document == nil
+        callback = function(instance)
+            local is_docless = instance.ui == nil or instance.ui.document == nil
             if is_docless then
                 local ReaderFrontLight = require("apps/reader/modules/readerfrontlight")
                 ReaderFrontLight:onShowFlDialog()
             else
-                self.ui:handleEvent(Event:new("ShowFlDialog"))
+                instance.ui:handleEvent(Event:new("ShowFlDialog"))
             end
         end,
     },
-}
-
-local HomePageWidget = InputContainer:new {
-    width = nil,
-    height = nil,
 }
 
 function HomePageWidget:init()
@@ -177,7 +177,7 @@ function HomePageWidget:init()
             width = icon_size,
             height = icon_size,
             scale_for_dpi = false,
-            callback = v.callback,
+            callback = function() v.callback(self) end,
             padding_top = 10,
             padding_bottom = 10,
             padding_left = icon_padding,
@@ -227,7 +227,9 @@ function HomePageWidget:init()
                     self:updatePanel(2)
                 end
             },
-            { text = "Statistics" },
+            {
+                text = "Statistics"
+            },
         },
         show_parent = self
     }
@@ -244,13 +246,19 @@ function HomePageWidget:init()
         text_footer
     }
 
-    local top_icon_contener = TopContainer:new{
-        dimen = Geom:new{ w = self.width, h = self.height * 0.1   },
-        VerticalGroup:new{
-            icon_widgets,
-            header_line
-        }
+    local top_vertical = VerticalGroup:new{
+        icon_widgets,
+        header_line
     }
+
+    local top_icon_contener = TopContainer:new{
+        dimen = Geom:new{ w = self.width, h = top_vertical:getSize().h  },
+        top_vertical
+    }
+
+    logger.info("#######################################")
+    logger.info(top_icon_contener:getSize())
+    logger.info(top_vertical:getSize())
 
     self.content_panel = FrameContainer:new{
         padding = 0,
@@ -352,7 +360,7 @@ function HomePageWidget:buildFooterText()
     return time_info_txt
 end
 
-function HomePageWidget:showLastBook()
+function HomePageWidget:showLastBook(max_height)
     local last_file = G_reader_settings:readSetting("lastfile")
     self.small_font_face = Font:getFace("smallffont")
     self.medium_font_face = Font:getFace("ffont")
