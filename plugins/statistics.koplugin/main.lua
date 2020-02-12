@@ -88,6 +88,16 @@ function ReaderStatistics:isDocless()
     return self.ui == nil or self.ui.document == nil
 end
 
+-- Return true if book is marked as read and option "Get stats for completed book" is disabled.
+-- This mean that we don't get reading stats.
+function ReaderStatistics:isComplete()
+    if self.ui.doc_settings.data.summary and self.ui.doc_settings.data.summary.status == "complete"
+        and not self.take_completed then
+        return true
+    end
+    return false
+end
+
 function ReaderStatistics:init()
     if not self:isDocless() and self.ui.document.is_pic then
         return
@@ -99,6 +109,7 @@ function ReaderStatistics:init()
     self.page_max_read_sec = tonumber(settings.max_sec)
     self.is_enabled = not (settings.is_enabled == false)
     self.convert_to_db = settings.convert_to_db
+    self.take_completed = not (settings.take_completed == false)
     self.ui.menu:registerToMainMenu(self)
     self:checkInitDatabase()
     BookStatusWidget.getStats = function()
@@ -158,7 +169,7 @@ function ReaderStatistics:init()
 end
 
 function ReaderStatistics:initData()
-    if self:isDocless() or not self.is_enabled then
+    if self:isDocless() or not self.is_enabled or self:isComplete() then
         return
     end
     -- first execution
@@ -639,41 +650,51 @@ function ReaderStatistics:getBookProperties()
     return props
 end
 
+function ReaderStatistics:makeDisabled()
+    self.start_current_period = TimeVal:now().sec
+    self:insertDB(self.id_curr_book)
+    self.ui.doc_settings:saveSetting("stats", self.data)
+    self:saveSettings()
+    if not self:isDocless() then
+        self.view.footer:updateFooter()
+    end
+end
+
+function ReaderStatistics:makeEnabled()
+    self:initData()
+    self.pages_stats = {}
+    self.start_current_period = TimeVal:now().sec
+    if self.document.info.has_pages then
+        self.curr_page = self.ui.paging.current_page
+    else
+        self.curr_page = self.document:getCurrentPage()
+    end
+    self.pages_stats[self.start_current_period] = self.curr_page
+    self:saveSettings()
+    if not self:isDocless() then
+        self.view.footer:updateFooter()
+    end
+end
+
 function ReaderStatistics:getStatisticEnabledMenuItem()
     return {
         text = _("Enabled"),
         checked_func = function() return self.is_enabled end,
         callback = function()
-            -- if was enabled, have to save data to file
-            if self.is_enabled and not self:isDocless() then
-                self:insertDB(self.id_curr_book)
-                self.ui.doc_settings:saveSetting("stats", self.data)
-            end
-
             self.is_enabled = not self.is_enabled
-            -- if was disabled have to get data from db
-            if self.is_enabled and not self:isDocless() then
-                self:initData()
-                self.pages_stats = {}
-                self.start_current_period = TimeVal:now().sec
-                if self.document.info.has_pages then
-                    self.curr_page = self.ui.paging.current_page
-                else
-                    self.curr_page = self.document:getCurrentPage()
-                end
-                self.pages_stats[self.start_current_period] = self.curr_page
+            if not self.is_enabled and not self:isDocless() then
+                self:makeDisabled()
             end
-            self:saveSettings()
-            if not self:isDocless() then
-                self.view.footer:updateFooter()
+            if self.is_enabled and not self:isDocless() then
+                self:makeEnabled()
             end
         end,
     }
 end
 
-function ReaderStatistics:updateSettings()
+function ReaderStatistics:updateTimeoutSettings()
     self.settings_dialog = MultiInputDialog:new {
-        title = _("Statistics settings"),
+        title = _("Page timeout"),
         fields = {
             {
                 text = self.page_min_read_sec,
@@ -721,7 +742,34 @@ function ReaderStatistics:addToMainMenu(menu_items)
             {
                 text = _("Settings"),
                 keep_menu_open = true,
-                callback = function() self:updateSettings() end,
+                sub_item_table = {
+                    {
+                        text = _("Timeout"),
+                        callback = function()
+                            self:updateTimeoutSettings()
+                        end,
+                    },
+                    {
+                        text = _("Take stats for the completed book"),
+                        checked_func = function()
+                            return self.take_completed
+                        end,
+                        callback = function()
+                            self.take_completed = not self.take_completed
+                            if not self:isDocless() then
+                                if self:isComplete() then
+                                    print("MAKE ENABLED_______________")
+                                    --self:makeEnabled()
+                                    self:makeDisabled()
+                                else
+                                    print("MAKE DISABLED ++++")
+                                    --self:makeDisabled()
+                                    self:makeEnabled()
+                                end
+                            end
+                        end,
+                    }
+                }
             },
             {
                 text = _("Reset book statistics"),
@@ -1670,9 +1718,10 @@ function ReaderStatistics:onPosUpdate(pos, pageno)
 end
 
 function ReaderStatistics:onPageUpdate(pageno)
-    if self:isDocless() or not self.is_enabled then
+    if self:isDocless() or not self.is_enabled or self:isComplete() then
         return
     end
+    print("_____PAGE UPDATE______________________")
     self.curr_page = pageno
     self.pages_stats[TimeVal:now().sec] = pageno
     local mem_read_pages = 0
@@ -1775,7 +1824,8 @@ function ReaderStatistics:saveSettings(fields)
         min_sec = self.page_min_read_sec,
         max_sec = self.page_max_read_sec,
         is_enabled = self.is_enabled,
-        convert_to_db = self.convert_to_db
+        convert_to_db = self.convert_to_db,
+        take_completed = self.take_completed,
     }
     G_reader_settings:saveSetting("statistics", settings)
 end
